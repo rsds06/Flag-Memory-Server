@@ -1,0 +1,13 @@
+{
+  "name": "flag-memory-server",
+  "version": "1.0.0",
+  "description": "Self-hosted server for Flag Memory Match remote multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  }
+}

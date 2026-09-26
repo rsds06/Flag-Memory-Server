@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flag Memory Match (Multiplayer)</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --card-back: #2b2b3d; --card-back-2: #3d3d55; --accent: #e2725b;
+    --text: #22222a; --muted: #7a7a85; --tile-bg: #ffffff; --win-bg: #e2725b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16161f; --text: #f0efe9; --muted: #9a9aa5; --tile-bg: #23232f; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px; min-height: 100%;
+  }
+  .wrap { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  .panel { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .hidden { display: none; }
+  .remote-box { width: 100%; background: var(--tile-bg); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .remote-box input[type="text"] {
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--muted);
+    background: var(--bg); color: var(--text); font-size: 1rem;
+  }
+  .code-input { text-align: center; text-transform: uppercase; letter-spacing: 0.15em; }
+  .remote-row { display: flex; gap: 8px; }
+  .remote-row button, .full-btn {
+    padding: 10px; border-radius: 8px; border: none; background: var(--accent);
+    color: white; font-weight: 600; cursor: pointer; flex: 1;
+  }
+  .code-display {
+    text-align: center; font-size: 1.8rem; font-weight: 700; letter-spacing: 0.25em;
+    padding: 10px; background: var(--bg); border-radius: 10px;
+  }
+  .status-line { font-size: 0.85rem; color: var(--muted); text-align: center; }
+  .difficulty { display: flex; gap: 8px; width: 100%; }
+  .difficulty button {
+    flex: 1; padding: 8px 6px; border-radius: 10px; border: 1px solid transparent;
+    background: var(--tile-bg); color: var(--text); font-size: 0.85rem; cursor: pointer;
+  }
+  .difficulty button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .pool-control { width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+  .pool-control input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .scoreboard { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .score-chip {
+    flex: 1 1 auto; min-width: 90px; background: var(--tile-bg); border-radius: 10px;
+    padding: 8px 10px; font-size: 0.8rem; text-align: center; border: 2px solid transparent;
+  }
+  .score-chip.current { border-color: var(--accent); }
+  .score-chip .p-name { display: block; color: var(--muted); font-size: 0.72rem; }
+  .score-chip .p-score { display: block; font-weight: 700; font-size: 1.05rem; }
+  .score-chip .p-countries {
+    display: block; margin-top: 4px; font-size: 0.62rem; line-height: 1.3;
+    color: var(--muted); max-height: 3.6em; overflow-y: auto;
+  }
+  .board { display: grid; gap: 8px; width: 100%; touch-action: manipulation; }
+  .tile {
+    aspect-ratio: 1 / 1; border-radius: 12px;
+    background: linear-gradient(135deg, var(--card-back), var(--card-back-2));
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+    -webkit-transform-style: preserve-3d; transform-style: preserve-3d;
+    transition: -webkit-transform 0.35s ease; transition: transform 0.35s ease;
+    position: relative;
+  }
+  .tile.flipped, .tile.matched {
+    background: var(--tile-bg);
+    -webkit-transform: rotateY(180deg); transform: rotateY(180deg);
+  }
+  .tile .face {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    -webkit-backface-visibility: hidden; backface-visibility: hidden;
+    border-radius: 12px; padding: 2px; text-align: center; overflow: hidden;
+  }
+  .tile .front { -webkit-transform: rotateY(180deg); transform: rotateY(180deg); }
+  .tile .front .flag { font-size: 1.5em; line-height: 1; }
+  .tile .front .name {
+    font-size: 0.5rem; line-height: 1.1; color: var(--muted); margin-top: 2px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tile.matched { opacity: 0.55; cursor: default; }
+  .tile.disabled { pointer-events: none; opacity: 0.6; }
+  .win-banner {
+    display: none; width: 100%; background: var(--win-bg); color: white;
+    padding: 14px; border-radius: 12px; text-align: center; font-weight: 600;
+  }
+  .win-banner.show { display: block; }
+  .controls { display: flex; gap: 10px; width: 100%; }
+  .controls button {
+    flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--muted);
+    background: var(--tile-bg); color: var(--text); font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Flag Memory Match</h1>
+
+  <div class="panel" id="setupPanel">
+    <div class="remote-box">
+      <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
+      <button class="full-btn" id="hostBtn">Host a Game</button>
+      <div style="text-align:center;color:var(--muted);font-size:0.8rem;">or</div>
+      <div class="remote-row">
+        <input type="text" id="codeInput" class="code-input" placeholder="Room code" maxlength="5" style="flex:2;">
+        <button id="joinBtn" style="flex:1;">Join</button>
+      </div>
+      <div class="status-line" id="statusLine">Connecting to server...</div>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="lobbyPanel">
+    <div class="remote-box">
+      <div class="status-line">Room code, share this with players</div>
+      <div class="code-display" id="lobbyCode">----</div>
+      <div class="difficulty" id="difficulty">
+        <button data-size="4" class="active">Easy (4x4)</button>
+        <button data-size="6">Medium (6x6)</button>
+        <button data-size="8">Hard (8x8)</button>
+      </div>
+      <div class="pool-control">
+        <label>Countries in pool: <b id="poolLabel">194</b></label>
+        <input type="range" id="poolSlider" min="20" max="194" value="194">
+      </div>
+      <div class="scoreboard" id="lobbyPlayers"></div>
+      <button class="full-btn" id="startBtn">Start Game</button>
+      <div class="status-line" id="lobbyStatus">Waiting for host to start...</div>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="gamePanel">
+    <div class="scoreboard" id="scoreboard"></div>
+    <div class="status-line" id="turnStatus"></div>
+  </div>
+
+  <div class="win-banner" id="winBanner"></div>
+  <div class="board" id="board"></div>
+
+  <div class="controls hidden" id="leaveControls">
+    <button id="leaveBtn">Leave Game</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const PLAYER_COLORS = ["#e2725b", "#5b8ee2", "#5be29a", "#e2c05b", "#a15be2", "#e25ba0"];
+
+  const setupPanel = document.getElementById("setupPanel");
+  const lobbyPanel = document.getElementById("lobbyPanel");
+  const gamePanel = document.getElementById("gamePanel");
+  const nameInput = document.getElementById("nameInput");
+  const hostBtn = document.getElementById("hostBtn");
+  const codeInput = document.getElementById("codeInput");
+  const joinBtn = document.getElementById("joinBtn");
+  const statusLine = document.getElementById("statusLine");
+  const lobbyCode = document.getElementById("lobbyCode");
+  const lobbyPlayers = document.getElementById("lobbyPlayers");
+  const startBtn = document.getElementById("startBtn");
+  const lobbyStatus = document.getElementById("lobbyStatus");
+  const scoreboard = document.getElementById("scoreboard");
+  const turnStatus = document.getElementById("turnStatus");
+  const winBanner = document.getElementById("winBanner");
+  const boardEl = document.getElementById("board");
+  const leaveControls = document.getElementById("leaveControls");
+  const leaveBtn = document.getElementById("leaveBtn");
+  const difficultyBtns = document.querySelectorAll("#difficulty button");
+  const poolSlider = document.getElementById("poolSlider");
+  const poolLabel = document.getElementById("poolLabel");
+
+  let ws = null;
+  let myId = null;
+  let roomCode = null;
+  let isHost = false;
+  let chosenSize = 4;
+  let chosenPool = 194;
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(proto + "//" + location.host);
+    ws.onopen = () => { statusLine.textContent = "Connected. Host or join a game."; };
+    ws.onclose = () => { statusLine.textContent = "Disconnected from server. Refresh to reconnect."; };
+    ws.onerror = () => { statusLine.textContent = "Connection error."; };
+    ws.onmessage = (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch (e) { return; }
+      if (msg.type === "joined") {
+        myId = msg.youId;
+        roomCode = msg.code;
+      } else if (msg.type === "error") {
+        statusLine.textContent = msg.message;
+      } else if (msg.type === "state") {
+        renderState(msg.state);
+      }
+    };
+  }
+  connect();
+
+  hostBtn.addEventListener("click", () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const name = (nameInput.value || "Host").trim().slice(0, 16) || "Host";
+    isHost = true;
+    ws.send(JSON.stringify({ type: "host", name }));
+  });
+
+  joinBtn.addEventListener("click", () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const name = (nameInput.value || "Player").trim().slice(0, 16) || "Player";
+    const code = (codeInput.value || "").trim().toUpperCase();
+    if (!code) { statusLine.textContent = "Enter a room code."; return; }
+    isHost = false;
+    ws.send(JSON.stringify({ type: "join", code, name }));
+  });
+
+  difficultyBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      difficultyBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      chosenSize = parseInt(btn.dataset.size, 10);
+    });
+  });
+  poolSlider.addEventListener("input", () => {
+    chosenPool = parseInt(poolSlider.value, 10);
+    poolLabel.textContent = chosenPool;
+  });
+
+  startBtn.addEventListener("click", () => {
+    ws.send(JSON.stringify({ type: "start", size: chosenSize, poolSize: chosenPool }));
+  });
+
+  leaveBtn.addEventListener("click", () => {
+    ws.send(JSON.stringify({ type: "leave" }));
+    location.reload();
+  });
+
+  function tileClick(idx) {
+    ws.send(JSON.stringify({ type: "flip", index: idx }));
+  }
+
+  function renderState(state) {
+    if (state.status === "lobby") {
+      setupPanel.classList.add("hidden");
+      lobbyPanel.classList.remove("hidden");
+      gamePanel.classList.add("hidden");
+      boardEl.innerHTML = "";
+      winBanner.classList.remove("show");
+      lobbyCode.textContent = roomCode;
+      const amHost = state.players[0] && state.players[0].id === myId;
+      startBtn.style.display = amHost ? "block" : "none";
+      lobbyStatus.textContent = amHost ? "Share the code above. Start when everyone's in." : "Waiting for host to start...";
+      lobbyPlayers.innerHTML = "";
+      state.players.forEach((p) => {
+        const chip = document.createElement("div");
+        chip.className = "score-chip";
+        chip.innerHTML = '<span class="p-name">' + escapeHtml(p.name) + (p.id === myId ? " (you)" : "") + (p.connected ? "" : " (offline)") + '</span>';
+        lobbyPlayers.appendChild(chip);
+      });
+      return;
+    }
+
+    setupPanel.classList.add("hidden");
+    lobbyPanel.classList.add("hidden");
+    gamePanel.classList.remove("hidden");
+    leaveControls.classList.remove("hidden");
+
+    boardEl.style.gridTemplateColumns = "repeat(" + state.size + ", 1fr)";
+    boardEl.innerHTML = "";
+    const currentPlayer = state.players[state.turnIndex];
+    const myTurn = currentPlayer && currentPlayer.id === myId;
+
+    state.tiles.forEach((t, idx) => {
+      const el = document.createElement("div");
+      el.className = "tile";
+      if (t.flipped) el.classList.add("flipped");
+      if (t.matched) el.classList.add("matched");
+      if (!myTurn || state.status === "finished") el.classList.add("disabled");
+      el.innerHTML =
+        '<div class="face back"></div>' +
+        '<div class="face front"><span class="flag">' + t.flag + '</span><span class="name">' + escapeHtml(t.name) + '</span></div>';
+      el.addEventListener("click", () => tileClick(idx));
+      boardEl.appendChild(el);
+    });
+
+    scoreboard.innerHTML = "";
+    state.players.forEach((p, i) => {
+      const chip = document.createElement("div");
+      chip.className = "score-chip" + (i === state.turnIndex ? " current" : "");
+      chip.style.borderColor = i === state.turnIndex ? PLAYER_COLORS[i % PLAYER_COLORS.length] : "transparent";
+      const countriesText = (p.countries || []).join(", ");
+      chip.innerHTML =
+        '<span class="p-name">' + escapeHtml(p.name) + (p.id === myId ? " (you)" : "") + (p.connected ? "" : " (offline)") + '</span>' +
+        '<span class="p-score">' + p.score + '</span>' +
+        '<span class="p-countries">' + escapeHtml(countriesText) + '</span>';
+      scoreboard.appendChild(chip);
+    });
+
+    if (state.status === "finished") {
+      const winner = state.players.find((p) => p.id === state.winnerId);
+      turnStatus.textContent = winner ? (winner.name + " wins!") : "It's a tie!";
+      winBanner.textContent = turnStatus.textContent;
+      winBanner.classList.add("show");
+    } else {
+      turnStatus.textContent = myTurn ? "Your turn" : (currentPlayer ? currentPlayer.name + "'s turn" : "");
+      winBanner.classList.remove("show");
+    }
+  }
+})();
+</script>
+</body>
+</html>
