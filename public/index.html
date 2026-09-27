@@ -22,6 +22,20 @@
   }
   .wrap { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
   h1 { font-size: 1.4rem; margin: 0; }
+  .mode-tabs { display: flex; gap: 8px; width: 100%; }
+  .mode-tabs button {
+    flex: 1; padding: 10px 6px; border-radius: 10px; border: 1px solid transparent;
+    background: var(--tile-bg); color: var(--text); font-size: 0.85rem; cursor: pointer;
+  }
+  .mode-tabs button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .hud { display: flex; justify-content: space-between; width: 100%; font-size: 0.95rem; color: var(--muted); flex-wrap: wrap; gap: 6px; }
+  .hud b { color: var(--text); }
+  .stepper {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    background: var(--tile-bg); border-radius: 10px; padding: 8px 12px;
+  }
+  .stepper button { width: 36px; height: 36px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 1.2rem; cursor: pointer; }
+  .stepper span { font-weight: 600; font-size: 1.05rem; }
   .panel { width: 100%; display: flex; flex-direction: column; gap: 10px; }
   .hidden { display: none; }
   .remote-box { width: 100%; background: var(--tile-bg); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -133,7 +147,51 @@
 <div class="wrap">
   <h1>Flag Memory Match</h1>
 
-  <div class="panel" id="setupPanel">
+  <div class="mode-tabs" id="modeTabs">
+    <button data-mode="solo" class="active">Solo</button>
+    <button data-mode="local">Local Multiplayer</button>
+    <button data-mode="remote">Remote Multiplayer</button>
+  </div>
+
+  <!-- SOLO PANEL -->
+  <div class="panel" id="soloPanel">
+    <div class="hud">
+      <span>Moves: <b id="soloMoves">0</b></span>
+      <span>Time: <b id="soloTimer">0:00</b></span>
+      <span>Best: <b id="soloBest">--</b></span>
+    </div>
+  </div>
+
+  <!-- LOCAL SETUP -->
+  <div class="panel hidden" id="localSetupPanel">
+    <div class="stepper">
+      <button id="localMinus">-</button>
+      <span><span id="localCount">2</span> players</span>
+      <button id="localPlus">+</button>
+    </div>
+    <button id="localStartBtn" class="full-btn">Start Local Game</button>
+  </div>
+
+  <!-- LOCAL IN-GAME HUD -->
+  <div class="panel hidden" id="localGamePanel">
+    <div class="scoreboard" id="localScoreboard"></div>
+  </div>
+
+  <!-- SHARED DIFFICULTY / POOL for Solo + Local -->
+  <div class="panel" id="soloLocalDifficultyPanel">
+    <div class="difficulty" id="soloLocalDifficulty">
+      <button data-size="4" class="active">Easy (4x4)</button>
+      <button data-size="6">Medium (6x6)</button>
+      <button data-size="8">Hard (8x8)</button>
+    </div>
+    <div class="pool-control">
+      <label>Countries in pool: <b id="soloLocalPoolLabel">194</b></label>
+      <input type="range" id="soloLocalPoolSlider" min="20" max="194" value="194">
+    </div>
+  </div>
+
+  <!-- REMOTE SETUP -->
+  <div class="panel hidden" id="remoteSetupPanel">
     <div class="remote-box">
       <input type="text" id="nameInput" placeholder="Your name" maxlength="16">
       <button class="full-btn" id="hostBtn">Host a Game</button>
@@ -146,7 +204,8 @@
     </div>
   </div>
 
-  <div class="panel hidden" id="lobbyPanel">
+  <!-- REMOTE LOBBY -->
+  <div class="panel hidden" id="remoteLobbyPanel">
     <div class="remote-box">
       <div class="status-line">Room code, share this with players</div>
       <div class="code-row" style="display:flex;gap:8px;align-items:center;">
@@ -168,7 +227,8 @@
     </div>
   </div>
 
-  <div class="panel hidden" id="gamePanel">
+  <!-- REMOTE IN-GAME HUD -->
+  <div class="panel hidden" id="remoteGamePanel">
     <div class="scoreboard" id="scoreboard"></div>
     <div class="status-line" id="turnStatus"></div>
   </div>
@@ -176,7 +236,12 @@
   <div class="win-banner" id="winBanner"></div>
   <div class="board" id="board"></div>
 
-  <div class="controls hidden" id="leaveControls">
+  <div class="controls" id="mainControls">
+    <button id="restartBtn">Restart</button>
+    <button id="newBtn">New Shuffle</button>
+  </div>
+
+  <div class="controls hidden" id="remoteExitControls">
     <button id="newGameBtn" style="background:var(--accent);color:white;border:none;">New Game</button>
     <button id="leaveBtn">Leave Game</button>
   </div>
@@ -185,10 +250,39 @@
 <script>
 (function () {
   const PLAYER_COLORS = ["#e2725b", "#5b8ee2", "#5be29a", "#e2c05b", "#a15be2", "#e25ba0"];
+  const COUNTRIES = [{"name":"Afghanistan","flag":"🇦🇫"},{"name":"Albania","flag":"🇦🇱"},{"name":"Algeria","flag":"🇩🇿"},{"name":"Andorra","flag":"🇦🇩"},{"name":"Angola","flag":"🇦🇴"},{"name":"Antigua and Barbuda","flag":"🇦🇬"},{"name":"Argentina","flag":"🇦🇷"},{"name":"Armenia","flag":"🇦🇲"},{"name":"Australia","flag":"🇦🇺"},{"name":"Austria","flag":"🇦🇹"},{"name":"Azerbaijan","flag":"🇦🇿"},{"name":"Bahamas","flag":"🇧🇸"},{"name":"Bahrain","flag":"🇧🇭"},{"name":"Bangladesh","flag":"🇧🇩"},{"name":"Barbados","flag":"🇧🇧"},{"name":"Belarus","flag":"🇧🇾"},{"name":"Belgium","flag":"🇧🇪"},{"name":"Belize","flag":"🇧🇿"},{"name":"Benin","flag":"🇧🇯"},{"name":"Bhutan","flag":"🇧🇹"},{"name":"Bolivia","flag":"🇧🇴"},{"name":"Bosnia and Herzegovina","flag":"🇧🇦"},{"name":"Botswana","flag":"🇧🇼"},{"name":"Brazil","flag":"🇧🇷"},{"name":"Brunei","flag":"🇧🇳"},{"name":"Bulgaria","flag":"🇧🇬"},{"name":"Burkina Faso","flag":"🇧🇫"},{"name":"Burundi","flag":"🇧🇮"},{"name":"Cabo Verde","flag":"🇨🇻"},{"name":"Cambodia","flag":"🇰🇭"},{"name":"Cameroon","flag":"🇨🇲"},{"name":"Canada","flag":"🇨🇦"},{"name":"Central African Republic","flag":"🇨🇫"},{"name":"Chad","flag":"🇹🇩"},{"name":"Chile","flag":"🇨🇱"},{"name":"China","flag":"🇨🇳"},{"name":"Colombia","flag":"🇨🇴"},{"name":"Comoros","flag":"🇰🇲"},{"name":"Congo","flag":"🇨🇬"},{"name":"Costa Rica","flag":"🇨🇷"},{"name":"Croatia","flag":"🇭🇷"},{"name":"Cuba","flag":"🇨🇺"},{"name":"Cyprus","flag":"🇨🇾"},{"name":"Czechia","flag":"🇨🇿"},{"name":"Denmark","flag":"🇩🇰"},{"name":"Djibouti","flag":"🇩🇯"},{"name":"Dominica","flag":"🇩🇲"},{"name":"Dominican Republic","flag":"🇩🇴"},{"name":"DR Congo","flag":"🇨🇩"},{"name":"Ecuador","flag":"🇪🇨"},{"name":"Egypt","flag":"🇪🇬"},{"name":"El Salvador","flag":"🇸🇻"},{"name":"Equatorial Guinea","flag":"🇬🇶"},{"name":"Eritrea","flag":"🇪🇷"},{"name":"Estonia","flag":"🇪🇪"},{"name":"Eswatini","flag":"🇸🇿"},{"name":"Ethiopia","flag":"🇪🇹"},{"name":"Fiji","flag":"🇫🇯"},{"name":"Finland","flag":"🇫🇮"},{"name":"France","flag":"🇫🇷"},{"name":"Gabon","flag":"🇬🇦"},{"name":"Gambia","flag":"🇬🇲"},{"name":"Georgia","flag":"🇬🇪"},{"name":"Germany","flag":"🇩🇪"},{"name":"Ghana","flag":"🇬🇭"},{"name":"Greece","flag":"🇬🇷"},{"name":"Grenada","flag":"🇬🇩"},{"name":"Guatemala","flag":"🇬🇹"},{"name":"Guinea","flag":"🇬🇳"},{"name":"Guinea-Bissau","flag":"🇬🇼"},{"name":"Guyana","flag":"🇬🇾"},{"name":"Haiti","flag":"🇭🇹"},{"name":"Honduras","flag":"🇭🇳"},{"name":"Hungary","flag":"🇭🇺"},{"name":"Iceland","flag":"🇮🇸"},{"name":"India","flag":"🇮🇳"},{"name":"Indonesia","flag":"🇮🇩"},{"name":"Iran","flag":"🇮🇷"},{"name":"Iraq","flag":"🇮🇶"},{"name":"Ireland","flag":"🇮🇪"},{"name":"Israel","flag":"🇮🇱"},{"name":"Italy","flag":"🇮🇹"},{"name":"Jamaica","flag":"🇯🇲"},{"name":"Japan","flag":"🇯🇵"},{"name":"Jordan","flag":"🇯🇴"},{"name":"Kazakhstan","flag":"🇰🇿"},{"name":"Kenya","flag":"🇰🇪"},{"name":"Kiribati","flag":"🇰🇮"},{"name":"Kuwait","flag":"🇰🇼"},{"name":"Kyrgyzstan","flag":"🇰🇬"},{"name":"Laos","flag":"🇱🇦"},{"name":"Latvia","flag":"🇱🇻"},{"name":"Lebanon","flag":"🇱🇧"},{"name":"Lesotho","flag":"🇱🇸"},{"name":"Liberia","flag":"🇱🇷"},{"name":"Libya","flag":"🇱🇾"},{"name":"Liechtenstein","flag":"🇱🇮"},{"name":"Lithuania","flag":"🇱🇹"},{"name":"Luxembourg","flag":"🇱🇺"},{"name":"Madagascar","flag":"🇲🇬"},{"name":"Malawi","flag":"🇲🇼"},{"name":"Malaysia","flag":"🇲🇾"},{"name":"Maldives","flag":"🇲🇻"},{"name":"Mali","flag":"🇲🇱"},{"name":"Malta","flag":"🇲🇹"},{"name":"Marshall Islands","flag":"🇲🇭"},{"name":"Mauritania","flag":"🇲🇷"},{"name":"Mauritius","flag":"🇲🇺"},{"name":"Mexico","flag":"🇲🇽"},{"name":"Micronesia","flag":"🇫🇲"},{"name":"Moldova","flag":"🇲🇩"},{"name":"Monaco","flag":"🇲🇨"},{"name":"Mongolia","flag":"🇲🇳"},{"name":"Montenegro","flag":"🇲🇪"},{"name":"Morocco","flag":"🇲🇦"},{"name":"Mozambique","flag":"🇲🇿"},{"name":"Myanmar","flag":"🇲🇲"},{"name":"Namibia","flag":"🇳🇦"},{"name":"Nauru","flag":"🇳🇷"},{"name":"Nepal","flag":"🇳🇵"},{"name":"Netherlands","flag":"🇳🇱"},{"name":"New Zealand","flag":"🇳🇿"},{"name":"Nicaragua","flag":"🇳🇮"},{"name":"Niger","flag":"🇳🇪"},{"name":"Nigeria","flag":"🇳🇬"},{"name":"North Korea","flag":"🇰🇵"},{"name":"North Macedonia","flag":"🇲🇰"},{"name":"Norway","flag":"🇳🇴"},{"name":"Oman","flag":"🇴🇲"},{"name":"Pakistan","flag":"🇵🇰"},{"name":"Palau","flag":"🇵🇼"},{"name":"Panama","flag":"🇵🇦"},{"name":"Papua New Guinea","flag":"🇵🇬"},{"name":"Paraguay","flag":"🇵🇾"},{"name":"Peru","flag":"🇵🇪"},{"name":"Philippines","flag":"🇵🇭"},{"name":"Poland","flag":"🇵🇱"},{"name":"Portugal","flag":"🇵🇹"},{"name":"Qatar","flag":"🇶🇦"},{"name":"Romania","flag":"🇷🇴"},{"name":"Russia","flag":"🇷🇺"},{"name":"Rwanda","flag":"🇷🇼"},{"name":"Saint Kitts and Nevis","flag":"🇰🇳"},{"name":"Saint Lucia","flag":"🇱🇨"},{"name":"Saint Vincent and the Grenadines","flag":"🇻🇨"},{"name":"Samoa","flag":"🇼🇸"},{"name":"San Marino","flag":"🇸🇲"},{"name":"Sao Tome and Principe","flag":"🇸🇹"},{"name":"Saudi Arabia","flag":"🇸🇦"},{"name":"Senegal","flag":"🇸🇳"},{"name":"Serbia","flag":"🇷🇸"},{"name":"Seychelles","flag":"🇸🇨"},{"name":"Sierra Leone","flag":"🇸🇱"},{"name":"Singapore","flag":"🇸🇬"},{"name":"Slovakia","flag":"🇸🇰"},{"name":"Slovenia","flag":"🇸🇮"},{"name":"Solomon Islands","flag":"🇸🇧"},{"name":"Somalia","flag":"🇸🇴"},{"name":"South Africa","flag":"🇿🇦"},{"name":"South Korea","flag":"🇰🇷"},{"name":"South Sudan","flag":"🇸🇸"},{"name":"Spain","flag":"🇪🇸"},{"name":"Sri Lanka","flag":"🇱🇰"},{"name":"Sudan","flag":"🇸🇩"},{"name":"Suriname","flag":"🇸🇷"},{"name":"Sweden","flag":"🇸🇪"},{"name":"Switzerland","flag":"🇨🇭"},{"name":"Syria","flag":"🇸🇾"},{"name":"Taiwan","flag":"🇹🇼"},{"name":"Tajikistan","flag":"🇹🇯"},{"name":"Tanzania","flag":"🇹🇿"},{"name":"Thailand","flag":"🇹🇭"},{"name":"Timor-Leste","flag":"🇹🇱"},{"name":"Togo","flag":"🇹🇬"},{"name":"Tonga","flag":"🇹🇴"},{"name":"Trinidad and Tobago","flag":"🇹🇹"},{"name":"Tunisia","flag":"🇹🇳"},{"name":"Turkey","flag":"🇹🇷"},{"name":"Turkmenistan","flag":"🇹🇲"},{"name":"Tuvalu","flag":"🇹🇻"},{"name":"Uganda","flag":"🇺🇬"},{"name":"Ukraine","flag":"🇺🇦"},{"name":"United Arab Emirates","flag":"🇦🇪"},{"name":"United Kingdom","flag":"🇬🇧"},{"name":"United States","flag":"🇺🇸"},{"name":"Uruguay","flag":"🇺🇾"},{"name":"Uzbekistan","flag":"🇺🇿"},{"name":"Vanuatu","flag":"🇻🇺"},{"name":"Vatican City","flag":"🇻🇦"},{"name":"Venezuela","flag":"🇻🇪"},{"name":"Vietnam","flag":"🇻🇳"},{"name":"Yemen","flag":"🇾🇪"},{"name":"Zambia","flag":"🇿🇲"},{"name":"Zimbabwe","flag":"🇿🇼"}];
 
-  const setupPanel = document.getElementById("setupPanel");
-  const lobbyPanel = document.getElementById("lobbyPanel");
-  const gamePanel = document.getElementById("gamePanel");
+  const MIN_COUNTRIES = 20;
+  const MAX_COUNTRIES = COUNTRIES.length;
+  const MAX_LOCAL_PLAYERS = 6;
+  const MIN_LOCAL_PLAYERS = 2;
+
+  // ---------- shared DOM refs ----------
+  const modeTabs = document.getElementById("modeTabs");
+  const soloPanel = document.getElementById("soloPanel");
+  const localSetupPanel = document.getElementById("localSetupPanel");
+  const localGamePanel = document.getElementById("localGamePanel");
+  const soloLocalDifficultyPanel = document.getElementById("soloLocalDifficultyPanel");
+  const soloLocalDifficultyBtns = document.querySelectorAll("#soloLocalDifficulty button");
+  const soloLocalPoolSlider = document.getElementById("soloLocalPoolSlider");
+  const soloLocalPoolLabel = document.getElementById("soloLocalPoolLabel");
+  const mainControls = document.getElementById("mainControls");
+  const restartBtn = document.getElementById("restartBtn");
+  const newBtn = document.getElementById("newBtn");
+
+  const soloMovesEl = document.getElementById("soloMoves");
+  const soloTimerEl = document.getElementById("soloTimer");
+  const soloBestEl = document.getElementById("soloBest");
+
+  const localMinus = document.getElementById("localMinus");
+  const localPlus = document.getElementById("localPlus");
+  const localCountEl = document.getElementById("localCount");
+  const localStartBtn = document.getElementById("localStartBtn");
+  const localScoreboard = document.getElementById("localScoreboard");
+
+  const remoteSetupPanel = document.getElementById("remoteSetupPanel");
+  const remoteLobbyPanel = document.getElementById("remoteLobbyPanel");
+  const remoteGamePanel = document.getElementById("remoteGamePanel");
   const nameInput = document.getElementById("nameInput");
   const hostBtn = document.getElementById("hostBtn");
   const codeInput = document.getElementById("codeInput");
@@ -202,13 +296,21 @@
   const turnStatus = document.getElementById("turnStatus");
   const winBanner = document.getElementById("winBanner");
   const boardEl = document.getElementById("board");
-  const leaveControls = document.getElementById("leaveControls");
+  const remoteExitControls = document.getElementById("remoteExitControls");
   const leaveBtn = document.getElementById("leaveBtn");
   const copyCodeBtn = document.getElementById("copyCodeBtn");
   const newGameBtn = document.getElementById("newGameBtn");
   const difficultyBtns = document.querySelectorAll("#difficulty button");
   const poolSlider = document.getElementById("poolSlider");
   const poolLabel = document.getElementById("poolLabel");
+
+  let mode = "solo"; // solo | local | remote
+  let size = 4;
+  let poolSize = MAX_COUNTRIES;
+  let tiles = [];
+  let flipped = [];
+  let matchedCount = 0;
+  let lock = false;
 
   let ws = null;
   let myId = null;
@@ -220,6 +322,27 @@
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function buildDeck(gridSize, poolLimit) {
+    const pairCount = (gridSize * gridSize) / 2;
+    const pool = shuffle(COUNTRIES.slice(0, poolLimit).slice());
+    let picks;
+    if (pairCount <= pool.length) {
+      picks = shuffle(pool).slice(0, pairCount);
+    } else {
+      picks = [];
+      for (let i = 0; i < pairCount; i++) picks.push(pool[i % pool.length]);
+    }
+    return shuffle(picks.concat(picks));
   }
 
   function fitTileContent(face) {
@@ -244,6 +367,308 @@
       fitTileContent(face);
     });
   }
+
+  function onTileClick(idx) {
+    if (mode === "solo") return soloTileClick(idx);
+    if (mode === "local") return localTileClick(idx);
+    if (mode === "remote") return tileClick(idx);
+  }
+
+  function renderBoard() {
+    boardEl.style.gridTemplateColumns = "repeat(" + size + ", 1fr)";
+    boardEl.innerHTML = "";
+    tiles.forEach((tile, idx) => {
+      const el = document.createElement("div");
+      if (tile.matched) {
+        el.className = "tile empty-slot";
+        tile.el = el;
+        boardEl.appendChild(el);
+        return;
+      }
+      el.className = "tile";
+      if (tile.flipped) el.classList.add("flipped");
+      const nameCls = tile.name.length > 24 ? "name name-xl-long" : (tile.name.length > 17 ? "name name-long" : "name");
+      el.innerHTML =
+        '<div class="face back"></div>' +
+        '<div class="face front"><span class="flag">' + tile.symbol + '</span><span class="' + nameCls + '">' + escapeHtml(tile.name) + '</span></div>';
+      el.addEventListener("click", () => onTileClick(idx));
+      tile.el = el;
+      boardEl.appendChild(el);
+    });
+    fitAllTiles();
+  }
+
+  // ==================================================
+  // SOLO MODE
+  // ==================================================
+  let soloMoves = 0;
+  let soloSeconds = 0;
+  let soloTimerHandle = null;
+  let soloStarted = false;
+
+  function soloStorageKey() { return "memory-match-best-" + size + "x" + size; }
+
+  function soloLoadBest() {
+    try {
+      const v = localStorage.getItem(soloStorageKey());
+      soloBestEl.textContent = v ? formatTime(parseInt(v, 10)) : "--";
+    } catch (e) { soloBestEl.textContent = "--"; }
+  }
+
+  function soloSaveBestIfBetter(finalSeconds) {
+    try {
+      const key = soloStorageKey();
+      const prev = localStorage.getItem(key);
+      if (!prev || finalSeconds < parseInt(prev, 10)) {
+        localStorage.setItem(key, String(finalSeconds));
+        soloLoadBest();
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m + ":" + String(sec).padStart(2, "0");
+  }
+
+  function soloStartTimer() {
+    soloStopTimer();
+    soloSeconds = 0;
+    soloTimerEl.textContent = formatTime(0);
+    soloTimerHandle = setInterval(() => {
+      soloSeconds++;
+      soloTimerEl.textContent = formatTime(soloSeconds);
+    }, 1000);
+  }
+  function soloStopTimer() {
+    if (soloTimerHandle) { clearInterval(soloTimerHandle); soloTimerHandle = null; }
+  }
+
+  function soloTileClick(idx) {
+    const tile = tiles[idx];
+    if (lock || tile.matched || tile.flipped) return;
+    if (!soloStarted) { soloStarted = true; soloStartTimer(); }
+
+    tile.flipped = true;
+    tile.el.classList.add("flipped");
+    flipped.push(idx);
+
+    if (flipped.length === 2) {
+      soloMoves++;
+      soloMovesEl.textContent = soloMoves;
+      lock = true;
+      const [aIdx, bIdx] = flipped;
+      const a = tiles[aIdx], b = tiles[bIdx];
+      if (a.symbol === b.symbol) {
+        a.matched = true; b.matched = true;
+        matchedCount += 2;
+        flipped = [];
+        setTimeout(() => {
+          a.el.className = "tile empty-slot"; a.el.innerHTML = "";
+          b.el.className = "tile empty-slot"; b.el.innerHTML = "";
+          lock = false;
+          if (matchedCount === tiles.length) soloWin();
+        }, 700);
+      } else {
+        setTimeout(() => {
+          a.el.classList.add("wrong"); b.el.classList.add("wrong");
+          setTimeout(() => {
+            a.flipped = false; b.flipped = false;
+            a.el.classList.remove("flipped", "wrong");
+            b.el.classList.remove("flipped", "wrong");
+            flipped = []; lock = false;
+          }, 400);
+        }, 500);
+      }
+    }
+  }
+
+  function soloWin() {
+    soloStopTimer();
+    soloSaveBestIfBetter(soloSeconds);
+    winBanner.textContent = "Solved in " + soloMoves + " moves, " + formatTime(soloSeconds) + "!";
+    winBanner.classList.add("show");
+  }
+
+  function soloNewGame() {
+    soloStopTimer();
+    soloStarted = false;
+    soloMoves = 0;
+    matchedCount = 0;
+    flipped = [];
+    lock = false;
+    soloMovesEl.textContent = "0";
+    soloTimerEl.textContent = "0:00";
+    winBanner.classList.remove("show");
+    const deck = buildDeck(size, poolSize);
+    tiles = deck.map((c) => ({ symbol: c.flag, name: c.name, flipped: false, matched: false, el: null }));
+    renderBoard();
+    soloLoadBest();
+  }
+
+  // ==================================================
+  // LOCAL MULTIPLAYER MODE
+  // ==================================================
+  let localPlayerCount = 2;
+  let localScores = [];
+  let localCountries = [];
+  let localCurrent = 0;
+
+  localMinus.addEventListener("click", () => {
+    localPlayerCount = Math.max(MIN_LOCAL_PLAYERS, localPlayerCount - 1);
+    localCountEl.textContent = localPlayerCount;
+  });
+  localPlus.addEventListener("click", () => {
+    localPlayerCount = Math.min(MAX_LOCAL_PLAYERS, localPlayerCount + 1);
+    localCountEl.textContent = localPlayerCount;
+  });
+  localStartBtn.addEventListener("click", () => {
+    localSetupPanel.classList.add("hidden");
+    localGamePanel.classList.remove("hidden");
+    startLocalGame();
+  });
+
+  function renderLocalScoreboard() {
+    localScoreboard.innerHTML = "";
+    localScores.forEach((score, i) => {
+      const chip = document.createElement("div");
+      chip.className = "score-chip" + (i === localCurrent ? " current" : "");
+      chip.style.borderColor = i === localCurrent ? PLAYER_COLORS[i % PLAYER_COLORS.length] : "transparent";
+      const countriesText = (localCountries[i] || []).join(" ");
+      chip.innerHTML =
+        '<span class="p-name">Player ' + (i + 1) + '</span>' +
+        '<span class="p-score">' + score + '</span>' +
+        '<span class="p-countries">' + escapeHtml(countriesText) + '</span>';
+      localScoreboard.appendChild(chip);
+    });
+  }
+
+  function localTileClick(idx) {
+    const tile = tiles[idx];
+    if (lock || tile.matched || tile.flipped) return;
+    tile.flipped = true;
+    tile.el.classList.add("flipped");
+    flipped.push(idx);
+
+    if (flipped.length === 2) {
+      lock = true;
+      const [aIdx, bIdx] = flipped;
+      const a = tiles[aIdx], b = tiles[bIdx];
+      if (a.symbol === b.symbol) {
+        a.matched = true; b.matched = true;
+        matchedCount += 2;
+        localScores[localCurrent]++;
+        localCountries[localCurrent].push(a.symbol);
+        flipped = [];
+        renderLocalScoreboard();
+        setTimeout(() => {
+          a.el.className = "tile empty-slot"; a.el.innerHTML = "";
+          b.el.className = "tile empty-slot"; b.el.innerHTML = "";
+          lock = false;
+          if (matchedCount === tiles.length) localWin();
+        }, 700);
+      } else {
+        setTimeout(() => {
+          a.el.classList.add("wrong"); b.el.classList.add("wrong");
+          setTimeout(() => {
+            a.flipped = false; b.flipped = false;
+            a.el.classList.remove("flipped", "wrong");
+            b.el.classList.remove("flipped", "wrong");
+            flipped = []; lock = false;
+            localCurrent = (localCurrent + 1) % localPlayerCount;
+            renderLocalScoreboard();
+          }, 400);
+        }, 500);
+      }
+    }
+  }
+
+  function localWin() {
+    let winnerIdx = 0;
+    for (let i = 1; i < localScores.length; i++) {
+      if (localScores[i] > localScores[winnerIdx]) winnerIdx = i;
+    }
+    const tie = localScores.filter((s) => s === localScores[winnerIdx]).length > 1;
+    winBanner.textContent = tie ? "It's a tie!" : "Player " + (winnerIdx + 1) + " wins!";
+    winBanner.classList.add("show");
+  }
+
+  function startLocalGame() {
+    localScores = new Array(localPlayerCount).fill(0);
+    localCountries = new Array(localPlayerCount).fill(null).map(() => []);
+    localCurrent = 0;
+    matchedCount = 0;
+    flipped = [];
+    lock = false;
+    winBanner.classList.remove("show");
+    const deck = buildDeck(size, poolSize);
+    tiles = deck.map((c) => ({ symbol: c.flag, name: c.name, flipped: false, matched: false, el: null }));
+    renderBoard();
+    renderLocalScoreboard();
+  }
+
+  // ==================================================
+  // MODE SWITCHING
+  // ==================================================
+  function setMode(newMode) {
+    mode = newMode;
+    modeTabs.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+
+    soloPanel.classList.add("hidden");
+    localSetupPanel.classList.add("hidden");
+    localGamePanel.classList.add("hidden");
+    remoteSetupPanel.classList.add("hidden");
+    remoteLobbyPanel.classList.add("hidden");
+    remoteGamePanel.classList.add("hidden");
+    remoteExitControls.classList.add("hidden");
+    soloLocalDifficultyPanel.classList.remove("hidden");
+    mainControls.classList.remove("hidden");
+    winBanner.classList.remove("show");
+    boardEl.innerHTML = "";
+
+    if (mode === "solo") {
+      soloPanel.classList.remove("hidden");
+      soloNewGame();
+    } else if (mode === "local") {
+      localSetupPanel.classList.remove("hidden");
+      mainControls.classList.add("hidden");
+    } else if (mode === "remote") {
+      remoteSetupPanel.classList.remove("hidden");
+      soloLocalDifficultyPanel.classList.add("hidden");
+      mainControls.classList.add("hidden");
+    }
+  }
+
+  modeTabs.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => setMode(btn.dataset.mode));
+  });
+
+  soloLocalDifficultyBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      soloLocalDifficultyBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      size = parseInt(btn.dataset.size, 10);
+      if (mode === "solo") soloNewGame();
+    });
+  });
+  soloLocalPoolSlider.max = String(MAX_COUNTRIES);
+  soloLocalPoolSlider.value = String(MAX_COUNTRIES);
+  soloLocalPoolLabel.textContent = MAX_COUNTRIES;
+  soloLocalPoolSlider.addEventListener("input", () => {
+    poolSize = parseInt(soloLocalPoolSlider.value, 10);
+    soloLocalPoolLabel.textContent = poolSize;
+  });
+  soloLocalPoolSlider.addEventListener("change", () => {
+    if (mode === "solo") soloNewGame();
+  });
+
+  restartBtn.addEventListener("click", () => { if (mode === "solo") soloNewGame(); });
+  newBtn.addEventListener("click", () => { if (mode === "solo") soloNewGame(); });
+
+  // ==================================================
+  // REMOTE MULTIPLAYER MODE (unchanged logic, renamed panel refs)
+  // ==================================================
 
   function connect() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -341,9 +766,9 @@
   function renderState(state) {
     lastState = state;
     if (state.status === "lobby") {
-      setupPanel.classList.add("hidden");
-      lobbyPanel.classList.remove("hidden");
-      gamePanel.classList.add("hidden");
+      remoteSetupPanel.classList.add("hidden");
+      remoteLobbyPanel.classList.remove("hidden");
+      remoteGamePanel.classList.add("hidden");
       boardEl.innerHTML = "";
       winBanner.classList.remove("show");
       lobbyCode.textContent = roomCode;
@@ -360,10 +785,10 @@
       return;
     }
 
-    setupPanel.classList.add("hidden");
-    lobbyPanel.classList.add("hidden");
-    gamePanel.classList.remove("hidden");
-    leaveControls.classList.remove("hidden");
+    remoteSetupPanel.classList.add("hidden");
+    remoteLobbyPanel.classList.add("hidden");
+    remoteGamePanel.classList.remove("hidden");
+    remoteExitControls.classList.remove("hidden");
 
     boardEl.style.gridTemplateColumns = "repeat(" + state.size + ", 1fr)";
     boardEl.innerHTML = "";
@@ -416,6 +841,8 @@
       newGameBtn.style.display = "none";
     }
   }
+
+  setMode("solo");
 })();
 </script>
 </body>
