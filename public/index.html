@@ -83,10 +83,13 @@
   .tile .front { -webkit-transform: rotateY(180deg); transform: rotateY(180deg); }
   .tile .front .flag { font-size: clamp(1.3rem, 7vw, 2.8em); line-height: 1; }
   .tile .front .name {
-    font-size: clamp(0.5rem, 2.4vw, 0.85rem); line-height: 1.15; color: var(--muted); margin-top: 2px;
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: clamp(0.5rem, 2.4vw, 0.85rem); line-height: 1.05; color: var(--muted); margin-top: 2px;
+    max-width: 100%; overflow: hidden; white-space: normal; word-break: break-word;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     font-weight: 600;
   }
+  .tile .front .name.name-long { font-size: clamp(0.42rem, 2vw, 0.7rem); }
+  .tile .front .name.name-xl-long { font-size: clamp(0.36rem, 1.7vw, 0.58rem); }
   .tile.matched { cursor: default; }
   .tile.empty-slot {
     background: transparent;
@@ -334,9 +337,10 @@
       el.className = "tile";
       if (t.flipped) el.classList.add("flipped");
       if (!myTurn || state.status === "finished") el.classList.add("disabled");
+      const nameCls = t.name.length > 24 ? "name name-xl-long" : (t.name.length > 17 ? "name name-long" : "name");
       el.innerHTML =
         '<div class="face back"></div>' +
-        '<div class="face front"><span class="flag">' + t.flag + '</span><span class="name">' + escapeHtml(t.name) + '</span></div>';
+        '<div class="face front"><span class="flag">' + t.flag + '</span><span class="' + nameCls + '">' + escapeHtml(t.name) + '</span></div>';
       el.addEventListener("click", () => tileClick(idx));
       boardEl.appendChild(el);
     });
