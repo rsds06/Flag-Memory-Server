@@ -143,7 +143,7 @@ wss.on("connection", (ws) => {
       if (!currentPlayer || currentPlayer.id !== myId) return;
       const idx = msg.index;
       const t = room.tiles[idx];
-      if (!t || t.matched || t.flipped || room.flipped.includes(idx)) return;
+      if (!t || t.matched || t.flipped || room.flipped.includes(idx) || room.flipped.length >= 2) return;
 
       t.flipped = true;
       room.flipped.push(idx);
@@ -155,22 +155,32 @@ wss.on("connection", (ws) => {
 
       const [aIdx, bIdx] = room.flipped;
       const a = room.tiles[aIdx], b = room.tiles[bIdx];
+      broadcast(room, myRoomCode);
       if (a.flag === b.flag) {
-        a.matched = true; b.matched = true;
-        room.matchedCount += 2;
-        currentPlayer.score++;
-        currentPlayer.countries.push(a.flag);
-        room.flipped = [];
-        if (room.matchedCount === room.tiles.length) {
-          room.status = "finished";
-          let top = room.players[0], tie = false;
-          for (const p of room.players) {
-            if (p.score > top.score) { top = p; tie = false; }
-            else if (p.score === top.score && p !== top) tie = true;
+        setTimeout(() => {
+          const r = rooms.get(myRoomCode);
+          if (!r) return;
+          const ra = r.tiles[aIdx], rb = r.tiles[bIdx];
+          if (ra) ra.matched = true;
+          if (rb) rb.matched = true;
+          r.matchedCount += 2;
+          const scoringPlayer = r.players[r.turnIndex];
+          if (scoringPlayer) {
+            scoringPlayer.score++;
+            scoringPlayer.countries.push(ra ? ra.flag : a.flag);
           }
-          room.winnerId = tie ? null : top.id;
-        }
-        broadcast(room, myRoomCode);
+          r.flipped = [];
+          if (r.matchedCount === r.tiles.length) {
+            r.status = "finished";
+            let top = r.players[0], tie = false;
+            for (const p of r.players) {
+              if (p.score > top.score) { top = p; tie = false; }
+              else if (p.score === top.score && p !== top) tie = true;
+            }
+            r.winnerId = tie ? null : top.id;
+          }
+          broadcast(r, myRoomCode);
+        }, 700);
       } else {
         broadcast(room, myRoomCode);
         setTimeout(() => {
