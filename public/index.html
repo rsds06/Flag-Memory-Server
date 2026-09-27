@@ -37,7 +37,7 @@
   .stepper button { width: 36px; height: 36px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 1.2rem; cursor: pointer; }
   .stepper span { font-weight: 600; font-size: 1.05rem; }
   .panel { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-  .hidden { display: none; }
+  .hidden { display: none !important; }
   .remote-box { width: 100%; background: var(--tile-bg); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .remote-box input[type="text"] {
     width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--muted);
@@ -90,19 +90,19 @@
   }
   .tile .face {
     position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
+    align-items: center; justify-content: flex-start;
     -webkit-backface-visibility: hidden; backface-visibility: hidden;
-    border-radius: 12px; padding: 2px; text-align: center; overflow: hidden;
+    border-radius: 12px; padding: 2px; text-align: center; overflow: visible;
+    z-index: 1;
   }
+  .tile.flipped, .tile.matched { z-index: 5; }
   .tile .front { -webkit-transform: rotateY(180deg); transform: rotateY(180deg); }
-  .tile .front .flag { font-size: clamp(1.3rem, 7vw, 2.8em); line-height: 1; }
+  .tile .front .flag { line-height: 1; width: 100%; min-width: 0; text-align: center; flex: 0 0 auto; }
   .tile .front .name {
-    font-size: clamp(0.5rem, 2.4vw, 0.85rem); line-height: 1.05; color: var(--muted); margin-top: 2px;
-    max-width: 100%; overflow: hidden; white-space: normal; word-break: break-word;
-    font-weight: 600;
+    line-height: 1.05; color: var(--muted); margin-top: 2px;
+    width: 100%; min-width: 0; max-width: 100%; white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+    font-weight: 600; flex: 0 0 auto; background: var(--tile-bg); border-radius: 4px; position: relative; z-index: 2;
   }
-  .tile .front .name.name-long { font-size: clamp(0.4rem, 1.9vw, 0.65rem); }
-  .tile .front .name.name-xl-long { font-size: clamp(0.32rem, 1.5vw, 0.5rem); }
   .tile.matched { cursor: default; }
   .tile.empty-slot {
     background: transparent;
@@ -345,52 +345,19 @@
     return shuffle(picks.concat(picks));
   }
 
-  function fitTileContent(face) {
-    const flag = face.querySelector(".flag");
-    const name = face.querySelector(".name");
-    if (!flag || !name) return;
-
-    flag.style.fontSize = "";
-    name.style.fontSize = "";
-
-    // Step 1: shrink the name alone until it doesn't overflow horizontally
-    // (word-break lets it wrap, this only matters for an unbroken long word).
-    let nameSize = parseFloat(getComputedStyle(name).fontSize);
-    const minNameSize = 6;
-    let guard = 0;
-    while (name.scrollWidth > face.clientWidth - 4 && nameSize > minNameSize && guard < 30) {
-      nameSize -= 0.4;
-      name.style.fontSize = nameSize + "px";
-      guard++;
-    }
-
-    // Step 2: shrink the flag to make the whole thing fit vertically,
-    // keeping the name at its legible size for as long as possible.
-    let flagSize = parseFloat(getComputedStyle(flag).fontSize);
-    const minFlagSize = 9;
-    guard = 0;
-    while (face.scrollHeight > face.clientHeight + 1 && flagSize > minFlagSize && guard < 40) {
-      flagSize -= 1;
-      flag.style.fontSize = flagSize + "px";
-      guard++;
-    }
-
-    // Step 3: only as a last resort (flag already at its floor, still
-    // overflowing), shrink the name further so the full text still fits.
-    guard = 0;
-    while (face.scrollHeight > face.clientHeight + 1 && nameSize > 4 && guard < 30) {
-      nameSize -= 0.4;
-      name.style.fontSize = nameSize + "px";
-      guard++;
-    }
-  }
-
   function fitAllTiles() {
+    const tile = boardEl.querySelector(".tile:not(.empty-slot)");
+    if (!tile) return;
+    const tileSize = tile.clientWidth;
+    const flagPx = Math.max(18, tileSize * 0.52);
+    const namePx = Math.max(10, Math.min(15, tileSize * 0.15));
     boardEl.querySelectorAll(".tile:not(.empty-slot) .face.front").forEach((face) => {
-      fitTileContent(face);
+      const flag = face.querySelector(".flag");
+      const name = face.querySelector(".name");
+      if (flag) flag.style.fontSize = flagPx + "px";
+      if (name) name.style.fontSize = namePx + "px";
     });
   }
-
   function onTileClick(idx) {
     if (mode === "solo") return soloTileClick(idx);
     if (mode === "local") return localTileClick(idx);
