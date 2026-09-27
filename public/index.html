@@ -81,9 +81,9 @@
     border-radius: 12px; padding: 2px; text-align: center; overflow: hidden;
   }
   .tile .front { -webkit-transform: rotateY(180deg); transform: rotateY(180deg); }
-  .tile .front .flag { font-size: 2.8em; line-height: 1; }
+  .tile .front .flag { font-size: clamp(1.3rem, 7vw, 2.8em); line-height: 1; }
   .tile .front .name {
-    font-size: 0.85rem; line-height: 1.15; color: var(--muted); margin-top: 4px;
+    font-size: clamp(0.5rem, 2.4vw, 0.85rem); line-height: 1.15; color: var(--muted); margin-top: 2px;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-weight: 600;
   }
