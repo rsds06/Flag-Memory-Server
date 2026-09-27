@@ -132,6 +132,7 @@ wss.on("connection", (ws) => {
       room.turnIndex = 0;
       room.winnerId = null;
       room.status = "playing";
+      room.players.forEach((p) => { p.score = 0; p.countries = []; });
       broadcast(room, myRoomCode);
     }
 
