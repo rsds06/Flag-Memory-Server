@@ -159,7 +159,7 @@ wss.on("connection", (ws) => {
         a.matched = true; b.matched = true;
         room.matchedCount += 2;
         currentPlayer.score++;
-        currentPlayer.countries.push(a.name);
+        currentPlayer.countries.push(a.flag);
         room.flipped = [];
         if (room.matchedCount === room.tiles.length) {
           room.status = "finished";
