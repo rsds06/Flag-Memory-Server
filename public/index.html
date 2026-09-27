@@ -349,16 +349,39 @@
     const flag = face.querySelector(".flag");
     const name = face.querySelector(".name");
     if (!flag || !name) return;
-    let flagSize = parseFloat(getComputedStyle(flag).fontSize);
+
+    flag.style.fontSize = "";
+    name.style.fontSize = "";
+
+    // Step 1: shrink the name alone until it doesn't overflow horizontally
+    // (word-break lets it wrap, this only matters for an unbroken long word).
     let nameSize = parseFloat(getComputedStyle(name).fontSize);
+    const minNameSize = 6;
     let guard = 0;
-    while (face.scrollHeight > face.clientHeight + 1 && guard < 40) {
-      flagSize *= 0.93;
-      nameSize *= 0.93;
-      flag.style.fontSize = flagSize + "px";
+    while (name.scrollWidth > face.clientWidth - 4 && nameSize > minNameSize && guard < 30) {
+      nameSize -= 0.4;
       name.style.fontSize = nameSize + "px";
       guard++;
-      if (flagSize < 6 && nameSize < 5) break;
+    }
+
+    // Step 2: shrink the flag to make the whole thing fit vertically,
+    // keeping the name at its legible size for as long as possible.
+    let flagSize = parseFloat(getComputedStyle(flag).fontSize);
+    const minFlagSize = 9;
+    guard = 0;
+    while (face.scrollHeight > face.clientHeight + 1 && flagSize > minFlagSize && guard < 40) {
+      flagSize -= 1;
+      flag.style.fontSize = flagSize + "px";
+      guard++;
+    }
+
+    // Step 3: only as a last resort (flag already at its floor, still
+    // overflowing), shrink the name further so the full text still fits.
+    guard = 0;
+    while (face.scrollHeight > face.clientHeight + 1 && nameSize > 4 && guard < 30) {
+      nameSize -= 0.4;
+      name.style.fontSize = nameSize + "px";
+      guard++;
     }
   }
 
@@ -597,7 +620,7 @@
   function startLocalGame() {
     localScores = new Array(localPlayerCount).fill(0);
     localCountries = new Array(localPlayerCount).fill(null).map(() => []);
-    localCurrent = 0;
+    localCurrent = Math.floor(Math.random() * localPlayerCount);
     matchedCount = 0;
     flipped = [];
     lock = false;
