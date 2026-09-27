@@ -67,7 +67,7 @@
     display: flex; align-items: center; justify-content: center; cursor: pointer;
     user-select: none; -webkit-tap-highlight-color: transparent;
     -webkit-transform-style: preserve-3d; transform-style: preserve-3d;
-    transition: -webkit-transform 0.35s ease; transition: transform 0.35s ease;
+    transition: -webkit-transform 0.6s ease; transition: transform 0.6s ease;
     position: relative;
   }
   .tile.flipped, .tile.matched {
@@ -81,12 +81,13 @@
     border-radius: 12px; padding: 2px; text-align: center; overflow: hidden;
   }
   .tile .front { -webkit-transform: rotateY(180deg); transform: rotateY(180deg); }
-  .tile .front .flag { font-size: 1.5em; line-height: 1; }
+  .tile .front .flag { font-size: 2.8em; line-height: 1; }
   .tile .front .name {
-    font-size: 0.5rem; line-height: 1.1; color: var(--muted); margin-top: 2px;
+    font-size: 0.85rem; line-height: 1.15; color: var(--muted); margin-top: 4px;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 600;
   }
-  .tile.matched { opacity: 0.55; cursor: default; }
+  .tile.matched { cursor: default; }
   .tile.disabled { pointer-events: none; }
   .win-banner {
     display: none; width: 100%; background: var(--win-bg); color: white;
@@ -120,7 +121,10 @@
   <div class="panel hidden" id="lobbyPanel">
     <div class="remote-box">
       <div class="status-line">Room code, share this with players</div>
-      <div class="code-display" id="lobbyCode">----</div>
+      <div class="code-row" style="display:flex;gap:8px;align-items:center;">
+        <div class="code-display" id="lobbyCode" style="flex:1;">----</div>
+        <button id="copyCodeBtn" style="padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:600;cursor:pointer;white-space:nowrap;">Copy</button>
+      </div>
       <div class="difficulty" id="difficulty">
         <button data-size="4" class="active">Easy (4x4)</button>
         <button data-size="6">Medium (6x6)</button>
@@ -145,6 +149,7 @@
   <div class="board" id="board"></div>
 
   <div class="controls hidden" id="leaveControls">
+    <button id="newGameBtn" style="background:var(--accent);color:white;border:none;">New Game</button>
     <button id="leaveBtn">Leave Game</button>
   </div>
 </div>
@@ -171,6 +176,8 @@
   const boardEl = document.getElementById("board");
   const leaveControls = document.getElementById("leaveControls");
   const leaveBtn = document.getElementById("leaveBtn");
+  const copyCodeBtn = document.getElementById("copyCodeBtn");
+  const newGameBtn = document.getElementById("newGameBtn");
   const difficultyBtns = document.querySelectorAll("#difficulty button");
   const poolSlider = document.getElementById("poolSlider");
   const poolLabel = document.getElementById("poolLabel");
@@ -181,6 +188,7 @@
   let isHost = false;
   let chosenSize = 4;
   let chosenPool = 194;
+  let lastState = null;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -244,11 +252,43 @@
     location.reload();
   });
 
+  copyCodeBtn.addEventListener("click", () => {
+    if (!roomCode) return;
+    const done = () => {
+      const original = copyCodeBtn.textContent;
+      copyCodeBtn.textContent = "Copied!";
+      setTimeout(() => { copyCodeBtn.textContent = original; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(roomCode).then(done).catch(() => fallbackCopy(roomCode, done));
+    } else {
+      fallbackCopy(roomCode, done);
+    }
+  });
+
+  function fallbackCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  newGameBtn.addEventListener("click", () => {
+    if (!lastState) return;
+    ws.send(JSON.stringify({ type: "start", size: lastState.size, poolSize: lastState.poolSize }));
+  });
+
   function tileClick(idx) {
     ws.send(JSON.stringify({ type: "flip", index: idx }));
   }
 
   function renderState(state) {
+    lastState = state;
     if (state.status === "lobby") {
       setupPanel.classList.add("hidden");
       lobbyPanel.classList.remove("hidden");
@@ -310,9 +350,13 @@
       turnStatus.textContent = winner ? (winner.name + " wins!") : "It's a tie!";
       winBanner.textContent = turnStatus.textContent;
       winBanner.classList.add("show");
+      const amHost = state.players[0] && state.players[0].id === myId;
+      newGameBtn.style.display = amHost ? "block" : "none";
+      if (!amHost) turnStatus.textContent += " Waiting for host to start a new game...";
     } else {
       turnStatus.textContent = myTurn ? "Your turn" : (currentPlayer ? currentPlayer.name + "'s turn" : "");
       winBanner.classList.remove("show");
+      newGameBtn.style.display = "none";
     }
   }
 })();
