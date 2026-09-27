@@ -129,7 +129,7 @@ wss.on("connection", (ws) => {
       room.tiles = buildDeck(room.size, room.poolSize);
       room.flipped = [];
       room.matchedCount = 0;
-      room.turnIndex = 0;
+      room.turnIndex = Math.floor(Math.random() * room.players.length);
       room.winnerId = null;
       room.status = "playing";
       room.players.forEach((p) => { p.score = 0; p.countries = []; });
