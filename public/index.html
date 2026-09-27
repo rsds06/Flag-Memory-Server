@@ -57,8 +57,8 @@
   .score-chip .p-name { display: block; color: var(--muted); font-size: 0.72rem; }
   .score-chip .p-score { display: block; font-weight: 700; font-size: 1.05rem; }
   .score-chip .p-countries {
-    display: block; margin-top: 4px; font-size: 0.62rem; line-height: 1.3;
-    color: var(--muted); max-height: 3.6em; overflow-y: auto;
+    display: block; margin-top: 4px; font-size: 1rem; line-height: 1.5;
+    letter-spacing: 1px; max-height: 3em; overflow-y: auto; word-break: break-all;
   }
   .board { display: grid; gap: 8px; width: 100%; touch-action: manipulation; }
   .tile {
@@ -88,6 +88,11 @@
     font-weight: 600;
   }
   .tile.matched { cursor: default; }
+  .tile.empty-slot {
+    background: transparent;
+    cursor: default;
+    -webkit-transform: none; transform: none;
+  }
   .tile.disabled { pointer-events: none; }
   .win-banner {
     display: none; width: 100%; background: var(--win-bg); color: white;
@@ -321,9 +326,13 @@
 
     state.tiles.forEach((t, idx) => {
       const el = document.createElement("div");
+      if (t.matched) {
+        el.className = "tile empty-slot";
+        boardEl.appendChild(el);
+        return;
+      }
       el.className = "tile";
       if (t.flipped) el.classList.add("flipped");
-      if (t.matched) el.classList.add("matched");
       if (!myTurn || state.status === "finished") el.classList.add("disabled");
       el.innerHTML =
         '<div class="face back"></div>' +
@@ -337,7 +346,7 @@
       const chip = document.createElement("div");
       chip.className = "score-chip" + (i === state.turnIndex ? " current" : "");
       chip.style.borderColor = i === state.turnIndex ? PLAYER_COLORS[i % PLAYER_COLORS.length] : "transparent";
-      const countriesText = (p.countries || []).join(", ");
+      const countriesText = (p.countries || []).join(" ");
       chip.innerHTML =
         '<span class="p-name">' + escapeHtml(p.name) + (p.id === myId ? " (you)" : "") + (p.connected ? "" : " (offline)") + '</span>' +
         '<span class="p-score">' + p.score + '</span>' +
